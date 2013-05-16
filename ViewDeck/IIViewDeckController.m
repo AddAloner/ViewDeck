@@ -305,7 +305,10 @@ static NSTimeInterval durationToAnimate(CGFloat pointsToAnimate, CGFloat velocit
     _openSlideAnimationDuration = 0.3;
     _closeSlideAnimationDuration = 0.3;
     _offsetOrientation = IIViewDeckHorizontalOrientation;
-    
+
+    _disabledPanClasses = [NSMutableSet setWithObject:[UISlider class]];
+    II_RETAIN(_disabledPanClasses);
+
     _delegate = nil;
     _delegateMode = IIViewDeckDelegateOnly;
     
@@ -1759,6 +1762,25 @@ static NSTimeInterval durationToAnimate(CGFloat pointsToAnimate, CGFloat velocit
     }];
 }
 
+#pragma mark - disable pan over certain controllers
+
+- (void)disablePanOverViewsOfClass:(Class)viewClass {
+    return [_disabledPanClasses addObject:viewClass];
+}
+
+- (void)enablePanOverViewsOfClass:(Class)viewClass {
+    return [_disabledPanClasses removeObject:viewClass];
+}
+
+- (BOOL)canPanOverViewsOfClass:(Class)viewClass {
+    return [_disabledPanClasses containsObject:viewClass];
+}
+
+- (NSArray*)viewClassesWithDisabledPan {
+    return [_disabledPanClasses allObjects];
+}
+
+
 #pragma mark - Top Side
 
 - (BOOL)toggleTopView {
@@ -2310,14 +2332,18 @@ static NSTimeInterval durationToAnimate(CGFloat pointsToAnimate, CGFloat velocit
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    // allow the panningGestureDelegate to act first
     if (self.panningGestureDelegate && [self.panningGestureDelegate respondsToSelector:@selector(gestureRecognizer:shouldReceiveTouch:)]) {
         BOOL result = [self.panningGestureDelegate gestureRecognizer:gestureRecognizer
                                                   shouldReceiveTouch:touch];
         if (!result) return result;
     }
-
-    if ([[touch view] isKindOfClass:[UISlider class]])
-        return NO;
+    
+    // check the disabled pan classes
+    for (Class viewClass in _disabledPanClasses) {
+        if ([[touch view] isKindOfClass:viewClass])
+            return NO;
+    }
 
     _panOrigin = self.slidingControllerView.frame.origin;
     return YES;
